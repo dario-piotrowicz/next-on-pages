@@ -1,0 +1,49 @@
+name: ⚡ Feature Request
+description: Request a new feature
+title: '[⚡ Feature]: '
+labels: ['']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you very much for taking the time to fill out this feature request!
+
+        Before creating the issue please make sure that:
+
+         - There isn't already an existing issue covering the feature request, if there is, please add a comment there instead.
+
+         - What you are suggesting is a new feature and not one that should be present but is missing, in that case open an bug report instead.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Please provide a detailed description of the new feature.
+      value: |
+        ### Current Behavior vs Expected Behavior
+
+        <!-- Please let us know what is the current behavior you're experiencing and how it differs from what you expected -->
+
+        ### Reproduction steps
+
+        <!-- Please provide steps that indicate how to reproduce the issue -->
+
+        <!--
+          Important Note:
+            Providing a GitHub repository that can present the bug is usually by far the most helpful thing that an issue can supply
+            please try to provide one if you can as that will likely help addressing the issue much much quicker
+        -->
+
+        ### Additional Information
+
+        <!-- Anything else you'd like to add -->
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: additional-info
+    attributes:
+      label: Additional information
+      description: Additional information regarding the feature.
+      options:
+        - label: Would you like to help implement this feature?
