@@ -43,10 +43,12 @@ export async function buildApplication({
 		throw new Error('Error: Could not detect current package manager in use');
 	}
 
+	let routerType: 'app' | 'pages' = 'app';
 	let buildSuccess = true;
 	if (!skipBuild) {
 		try {
-			await buildVercelOutput(pm);
+			const outputInfo = await buildVercelOutput(pm);
+			routerType = outputInfo.routerType;
 		} catch {
 			const execStr = await pm.getRunExec('vercel', {
 				args: ['build'],
@@ -73,6 +75,7 @@ export async function buildApplication({
 	const buildStartTime = Date.now();
 
 	await prepareAndBuildWorker(outputDir, {
+		routerType,
 		disableChunksDedup,
 		disableWorkerMinification,
 	});
@@ -86,7 +89,10 @@ async function prepareAndBuildWorker(
 	{
 		disableChunksDedup,
 		disableWorkerMinification,
-	}: Pick<CliOptions, 'disableChunksDedup' | 'disableWorkerMinification'>,
+		routerType,
+	}: Pick<CliOptions, 'disableChunksDedup' | 'disableWorkerMinification'> & {
+		routerType: 'app' | 'pages';
+	},
 ): Promise<void> {
 	let vercelConfig: VercelConfig;
 	try {
@@ -118,6 +124,7 @@ async function prepareAndBuildWorker(
 			nopDistDir: join(workerJsDir, '__next-on-pages-dist__'),
 			disableChunksDedup,
 			vercelConfig,
+			routerType,
 		});
 	}
 

@@ -223,6 +223,7 @@ export async function createRouterTestData(
 		nopDistDir: join(workerJsDir, '__next-on-pages-dist__'),
 		disableChunksDedup: true,
 		vercelConfig: { version: 3 },
+		// routerType,
 	});
 
 	const staticAssets = await getVercelStaticAssets();

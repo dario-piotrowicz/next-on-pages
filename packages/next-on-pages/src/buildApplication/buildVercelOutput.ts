@@ -27,7 +27,9 @@ import { waitForProcessToClose } from './processUtils';
  *
  * @param pm the package manager currently in use
  */
-export async function buildVercelOutput(pm: PackageManager): Promise<void> {
+export async function buildVercelOutput(
+	pm: PackageManager,
+): Promise<{ routerType: 'app' | 'pages' }> {
 	cliLog(`Detected Package Manager: ${pm.name} (${pm.version})\n`);
 
 	cliLog('Preparing project...');
@@ -54,7 +56,10 @@ export async function buildVercelOutput(pm: PackageManager): Promise<void> {
 
 	cliLog('Project is ready');
 
-	await runVercelBuild(pm, tempVercelConfig?.additionalArgs);
+	const { routerType } = await runVercelBuild(
+		pm,
+		tempVercelConfig?.additionalArgs,
+	);
 	if (tempVercelConfig) {
 		await rm(tempVercelConfig.tempPath);
 	}
@@ -64,6 +69,8 @@ export async function buildVercelOutput(pm: PackageManager): Promise<void> {
 		download: 'prefer-if-needed',
 	});
 	cliLog(`Completed \`${execStr}\`.`);
+
+	return { routerType };
 }
 
 /**
@@ -132,7 +139,7 @@ type TempVercelConfigInfo = { additionalArgs: string[]; tempPath: string };
 async function runVercelBuild(
 	pm: PackageManager,
 	additionalArgs: string[] = [],
-): Promise<void> {
+): Promise<{ routerType: 'app' | 'pages' }> {
 	if (pm.name === 'yarn' && pm.version.startsWith('1.')) {
 		const vercelVersion = await getPackageVersionOrNull(pm, 'vercel');
 
@@ -143,7 +150,13 @@ async function runVercelBuild(
 
 			const installVercel = spawn(pm.name, ['add', 'vercel', '-D']);
 
-			logVercelProcessOutput(installVercel);
+			installVercel.stdout.on('data', data =>
+				cliLog(`\n${data}`, { fromVercelCli: true }),
+			);
+
+			installVercel.stderr.on('data', data =>
+				cliLog(`\n${data}`, { fromVercelCli: true }),
+			);
 
 			await waitForProcessToClose(installVercel);
 
@@ -155,9 +168,9 @@ async function runVercelBuild(
 
 	const vercelBuild = await getVercelBuildChildProcess(pm, additionalArgs);
 
-	logVercelProcessOutput(vercelBuild);
+	const collectedInfo = await handleVercelBuildProcess(vercelBuild);
 
-	await waitForProcessToClose(vercelBuild);
+	return { routerType: collectedInfo?.routerType ?? 'app' };
 }
 
 async function getVercelBuildChildProcess(
@@ -206,17 +219,38 @@ export async function deleteNextTelemetryFiles(
  *
  * @param vercelProcess Spawned Vercel process.
  */
-function logVercelProcessOutput(
+async function handleVercelBuildProcess(
 	vercelProcess: ChildProcessWithoutNullStreams,
-): void {
-	vercelProcess.stdout.on('data', data =>
-		cliLog(`\n${data}`, { fromVercelCli: true }),
-	);
+): Promise<{ routerType?: 'app' | 'pages' } | undefined> {
+	let routerType: 'app' | 'pages' | undefined = undefined;
 
-	vercelProcess.stderr.on('data', data =>
-		// here we use cliLog instead of cliError because the Vercel cli
-		// currently displays non-error messages in stderr
-		// so we just display all Vercel logs as standard logs
-		cliLog(`\n${data}`, { fromVercelCli: true }),
-	);
+	return new Promise((resolve, reject) => {
+		vercelProcess.stdout.on('data', data => {
+			// debugger;
+			const dataStr = data.toString();
+			// console.log(`\x1b[32m ${dataStr} \x1b[0m`);
+			// if(dataStr.includes('Route')) debugger;
+			const match = dataStr.match(/\s*Route \((app|pages)\)\s*'/);
+			const matchedRouterType = match?.[1];
+			cliLog(`\n${data}`, { fromVercelCli: true });
+			if (matchedRouterType === 'app' || matchedRouterType === 'pages') {
+				routerType = matchedRouterType;
+			}
+		});
+
+		vercelProcess.stderr.on('data', data =>
+			// here we use cliLog instead of cliError because the Vercel cli
+			// currently displays non-error messages in stderr
+			// so we just display all Vercel logs as standard logs
+			cliLog(`\n${data}`, { fromVercelCli: true }),
+		);
+
+		vercelProcess.on('close', code => {
+			if (code === 0) {
+				resolve({ routerType });
+			} else {
+				reject();
+			}
+		});
+	});
 }

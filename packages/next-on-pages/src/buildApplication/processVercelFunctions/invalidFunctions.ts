@@ -23,9 +23,11 @@ import type { ProcessVercelFunctionsOpts } from '.';
  */
 export async function checkInvalidFunctions(
 	collectedFunctions: CollectedFunctions,
-	opts: Pick<ProcessVercelFunctionsOpts, 'functionsDir' | 'vercelConfig'>,
+	opts: Pick<ProcessVercelFunctionsOpts, 'functionsDir' | 'vercelConfig'> & {
+		routerType: 'app' | 'pages';
+	},
 ): Promise<void> {
-	await tryToFixNotFoundRoute(collectedFunctions);
+	await tryToFixNotFoundRoute(collectedFunctions, opts.routerType);
 
 	await tryToFixI18nFunctions(collectedFunctions, opts);
 
@@ -57,6 +59,7 @@ export async function checkInvalidFunctions(
  */
 async function tryToFixNotFoundRoute(
 	collectedFunctions: CollectedFunctions,
+	routerType: 'app' | 'pages',
 ): Promise<void> {
 	const functionsDir = resolve('.vercel', 'output', 'functions');
 	const notFoundDir = join(functionsDir, '_not-found.func');
@@ -69,6 +72,13 @@ async function tryToFixNotFoundRoute(
 		collectedFunctions.invalidFunctions.delete(notFoundDir);
 		const notFoundRscDir = join(functionsDir, '_not-found.rsc.func');
 		collectedFunctions.invalidFunctions.delete(notFoundRscDir);
+	}
+
+	// _error.func are generated in the app router only under the hood and not
+	// intentionally by users, they are also not necessary in next-on-pages so
+	// we can remove them
+	if (invalidError && routerType === 'app') {
+		collectedFunctions.invalidFunctions.delete(errorDir);
 	}
 
 	if (invalidNotFound && invalidError) {

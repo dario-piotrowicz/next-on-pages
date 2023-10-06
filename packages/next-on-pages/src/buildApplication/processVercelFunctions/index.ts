@@ -13,7 +13,7 @@ import { checkInvalidFunctions } from './invalidFunctions';
  * @returns The collected functions and their identifiers.
  */
 export async function processVercelFunctions(
-	opts: ProcessVercelFunctionsOpts,
+	opts: ProcessVercelFunctionsOpts & { routerType: 'app' | 'pages' },
 ): Promise<ProcessedVercelFunctions> {
 	const collectedFunctions = await collectFunctionConfigsRecursively(
 		opts.functionsDir,
