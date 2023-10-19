@@ -1,5 +1,6 @@
 import { gtr as versionGreaterThan } from 'semver';
 import { cliError, cliWarn } from '../../cli';
+import type { PackageManager} from 'package-manager-manager';
 import { getPackageManager } from 'package-manager-manager';
 import {
 	formatRoutePath,
@@ -153,7 +154,11 @@ async function tryToFixI18nFunctions(
 async function printInvalidFunctionsErrorMessage(
 	invalidFunctions: Map<string, FunctionInfo>,
 ): Promise<void> {
-	const pm = await getPackageManager();
+	let pm: PackageManager|null = null;
+	try {
+		pm = await getPackageManager();
+	} catch {/* */}
+	
 	const nextVersion = pm ? await getPackageVersionOrNull(pm, 'next') : null;
 
 	const { exportText, exampleCode } =

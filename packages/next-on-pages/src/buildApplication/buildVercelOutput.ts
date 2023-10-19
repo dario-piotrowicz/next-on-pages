@@ -27,15 +27,17 @@ import { waitForProcessToClose } from './processUtils';
  *
  * @param pm the package manager currently in use
  */
-export async function buildVercelOutput(pm: PackageManager): Promise<void> {
-	cliLog(`Detected Package Manager: ${pm.name} (${pm.version})\n`);
+export async function buildVercelOutput(pm: PackageManager|null): Promise<void> {
+	if(pm) {
+		cliLog(`Detected Package Manager: ${pm.name} (${pm.version})\n`);
+	}
 
 	cliLog('Preparing project...');
 	await generateProjectJsonFileIfNeeded();
 
 	let tempVercelConfig: TempVercelConfigInfo | undefined;
 
-	if (pm.name === 'bun') {
+	if (pm?.name === 'bun') {
 		// Vercel introduced proper Bun support in 32.2.1 and 32.2.4 (for monorepos), therefore we should
 		// ensure the Vercel CLI has a config file telling it to use Bun for older versions. This is done
 		// to prevent a breaking change for users who are using an older version of the Vercel CLI.
@@ -59,10 +61,10 @@ export async function buildVercelOutput(pm: PackageManager): Promise<void> {
 		await rm(tempVercelConfig.tempPath);
 	}
 
-	const execStr = await pm.getRunExec('vercel', {
+	const execStr = pm ? await pm.getRunExec('vercel', {
 		args: ['build'],
 		download: 'prefer-if-needed',
-	});
+	}) : 'vercel build';
 	cliLog(`Completed \`${execStr}\`.`);
 }
 
@@ -130,10 +132,10 @@ type VercelProjectJson = {
 type TempVercelConfigInfo = { additionalArgs: string[]; tempPath: string };
 
 async function runVercelBuild(
-	pm: PackageManager,
+	pm: PackageManager|null,
 	additionalArgs: string[] = [],
 ): Promise<void> {
-	if (pm.name === 'yarn' && pm.version.startsWith('1.')) {
+	if (pm?.name === 'yarn' && pm.version.startsWith('1.')) {
 		const vercelVersion = await getPackageVersionOrNull(pm, 'vercel');
 
 		if (!vercelVersion) {
@@ -161,13 +163,16 @@ async function runVercelBuild(
 }
 
 async function getVercelBuildChildProcess(
-	pm: PackageManager,
+	pm: PackageManager|null,
 	additionalArgs: string[] = [],
 ): Promise<ChildProcessWithoutNullStreams> {
-	const spawnCmd = await pm.getRunExecStruct('vercel', {
+	const spawnCmd = pm ? await pm.getRunExecStruct('vercel', {
 		args: ['build', ...additionalArgs],
 		download: 'prefer-if-needed',
-	});
+	}) : {
+		cmd: 'npx',
+		cmdArgs: ['vercel', 'build'],
+	};
 
 	if (!spawnCmd) {
 		throw new Error('Error: Failed to generate vercel build command');

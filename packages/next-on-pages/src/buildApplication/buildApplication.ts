@@ -1,5 +1,6 @@
 import { exit } from 'process';
 import { join, resolve } from 'path';
+import type { PackageManager} from 'package-manager-manager';
 import { getPackageManager } from 'package-manager-manager';
 import type { CliOptions } from '../cli';
 import { cliError, cliLog, cliSuccess } from '../cli';
@@ -36,21 +37,24 @@ export async function buildApplication({
 	| 'watch'
 	| 'outdir'
 >) {
-	const pm = await getPackageManager();
+	let pm: PackageManager|null = null;
+	try {
+		pm = await getPackageManager();
+	} catch {/* */}
 
-	if (!pm) {
-		throw new Error('Error: Could not detect current package manager in use');
-	}
+	// if (!pm) {
+	// 	throw new Error('Error: Could not detect current package manager in use');
+	// }
 
 	let buildSuccess = true;
 	if (!skipBuild) {
 		try {
 			await buildVercelOutput(pm);
 		} catch {
-			const execStr = await pm.getRunExec('vercel', {
+			const execStr = pm ? await pm.getRunExec('vercel', {
 				args: ['build'],
 				download: 'prefer-if-needed',
-			});
+			}) : '';
 			cliError(
 				`
 					The Vercel build ${

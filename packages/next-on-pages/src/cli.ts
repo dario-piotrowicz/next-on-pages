@@ -5,6 +5,7 @@ import { argumentParser } from 'zodcli';
 import type { ChalkInstance } from 'chalk';
 import chalk from 'chalk';
 import { join, resolve } from 'path';
+import type { PackageManager} from 'package-manager-manager';
 import { getPackageManager } from 'package-manager-manager';
 import {
 	getPackageVersionOrNull,
@@ -250,7 +251,10 @@ function prepareCliMessage(
 }
 
 export async function printEnvInfo(): Promise<void> {
-	const pm = await getPackageManager();
+	let pm: PackageManager|null = null;
+	try {
+		pm = await getPackageManager();
+	} catch {/* */}
 
 	const pmInfo = pm
 		? `\n		Package Manager Used: ${pm.name} (${pm.version})\n`
