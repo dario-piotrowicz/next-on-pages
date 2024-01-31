@@ -30,7 +30,18 @@ export async function setupDevBindings(
 
 	const bindings = await mf.getBindings();
 
-	monkeyPatchVmModule(bindings);
+	monkeyPatchVmModule(
+		bindings,
+		{
+			waitUntil: () => {
+				/**/
+			},
+			passThroughOnException: () => {
+				/* */
+			},
+		} as ExecutionContext,
+		{} as unknown as IncomingRequestCfProperties,
+	);
 }
 
 /**
@@ -154,32 +165,33 @@ function getPersistOption(
  *
  * @param bindings array containing the miniflare binding proxies to add to the runtime context's `process.env`
  */
-function monkeyPatchVmModule(bindings: Record<string, unknown>) {
+function monkeyPatchVmModule(
+	bindings: Record<string, unknown>,
+	ctx: ExecutionContext,
+	cf: IncomingRequestCfProperties,
+) {
 	// eslint-disable-next-line @typescript-eslint/no-var-requires
 	const vmModule = require('vm');
 
 	const originalRunInContext = vmModule.runInContext.bind(vmModule);
 
-	const bindingsProxyHasBeenSetSymbol = Symbol('BINDINGS_PROXY_HAS_BEEN_SET');
-
 	vmModule.runInContext = (
 		...args: [
 			string,
 			Record<string, unknown> & {
-				process?: { env?: Record<string | symbol, unknown> };
+				cloudflare: { env: unknown; ctx: unknown; cf: unknown };
 			},
 			...[unknown],
 		]
 	) => {
 		const runtimeContext = args[1];
 
-		if (
-			runtimeContext.process?.env &&
-			!runtimeContext.process.env[bindingsProxyHasBeenSetSymbol]
-		) {
-			for (const [name, binding] of Object.entries(bindings)) {
-				runtimeContext.process.env[name] = binding;
-			}
+		if (!runtimeContext.cloudflare) {
+			runtimeContext.cloudflare = {
+				env: bindings,
+				ctx,
+				cf,
+			};
 
 			runtimeContext['Request'] = new Proxy(Request, {
 				construct(target, args, newTarget) {
@@ -195,8 +207,6 @@ function monkeyPatchVmModule(bindings: Record<string, unknown>) {
 			});
 			runtimeContext['Response'] = Response;
 			runtimeContext['Headers'] = Headers;
-
-			runtimeContext.process.env[bindingsProxyHasBeenSetSymbol] = true;
 		}
 
 		return originalRunInContext(...args);
